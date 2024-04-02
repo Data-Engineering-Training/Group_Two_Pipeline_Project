@@ -1,9 +1,9 @@
-Customer Data Generation and Analysis Pipeline
-Project Overview
+## Customer Data Generation and Analysis Pipeline
+## Project Overview
 
 This project outlines a data pipeline for generating and analyzing customer data for 10 fictitious companies. The pipeline leverages the Faker library to create realistic customer data and explores various functionalities through SQL queries.
 
-Pipeline Stages
+## Pipeline Stages
 
 Data Generation (Python):
 
@@ -48,3 +48,40 @@ Future Enhancements
 Integrate data visualization tools to present analytical results.
 Expand the range of queries to answer more complex business questions.
 Implement data quality checks for data validation purposes.
+
+# More Info
+
+This repository contains scripts for generating synthetic company data, writing it to Parquet files, and ingesting it into a PostgreSQL database. Below is a guide on how to use these scripts effectively.
+
+## Installation
+
+Before running the scripts, make sure you have Python installed on your system. You can install the required dependencies using pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Generating Company Data
+```bash
+generate_data.py
+```
+Is used to generate synthetic data.
+
+## Ingestion of Data
+```bash
+data_ingestion_pipeline.py
+```
+Is used to create a database in the postgres docker container and ingest the synthetically generated data into it
+
+## Dependencies
+
+    pyarrow==5.0.0
+    pandas==1.3.3
+    psycopg2==2.9.1
+    tqdm==4.62.3
+    Faker==9.10.2
+
+## Note
+
+    The generated data is purely synthetic. NO COMPANY'S DATA was used in this project.
+    Ensure proper configuration of environment variables and database connection details before running the ingestion program.
