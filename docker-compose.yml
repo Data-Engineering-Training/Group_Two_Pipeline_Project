@@ -1,0 +1,14 @@
+version: '3'
+services:
+  postgres:
+    image: postgres
+    container_name: postgres-container
+    environment:
+      POSTGRES_DB: group-two-storage
+      POSTGRES_USER: Sage9705
+      POSTGRES_PASSWORD: GroupTwoPipeline
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/company_data:/data
+ 
