@@ -2,6 +2,7 @@ import os
 import pyarrow as pa
 import pyarrow.parquet as pq
 from faker import Faker
+import uuid  # for generating unique IDs
 
 # Initialize Faker instance
 fake = Faker()
@@ -22,6 +23,7 @@ companies = [
 
 # Define the fields to generate
 fields = [
+    "id",  # Add 'id' field for unique identifier
     "company",
     "name",
     "address",
@@ -40,6 +42,7 @@ for company in companies:
     records = []
     for _ in range(100000):
         record = {
+            "id": str(uuid.uuid4()),  # Generate a unique ID for each record
             "company": company,
             "name": fake.name(),
             "address": fake.address(),
