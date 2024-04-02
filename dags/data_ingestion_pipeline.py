@@ -1,13 +1,12 @@
 import os
-from datetime import datetime, timedelta
-from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
-from airflow.hooks.postgres_hook import PostgresHook
-import pyarrow.parquet as pq
 import pandas as pd
+import psycopg2
+from tqdm import tqdm
+
+import os
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
-from dotenv import load_dotenv
 load_dotenv()
 
 # Access environment variables
@@ -17,64 +16,70 @@ postgres_db = os.getenv('POSTGRES_DB')
 postgres_user = os.getenv('POSTGRES_USER')
 postgres_password = os.getenv('POSTGRES_PASSWORD')
 data_dir = os.getenv('DATA_DIR')
-staging_dir = os.getenv('STAGING_DIR')
+# staging_dir = os.getenv('STAGING_DIR')
 
-# Define the default arguments for the DAG
-default_args = {
-    'owner': 'airflow',
-    'depends_on_past': False,
-    'start_date': datetime(2023, 4, 2),
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
-}
+# Determine the path to the staging directory relative to the script's location
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(script_dir, '..', 'data', 'company_data')  # Update path to company_data
 
-# Function to read and store data
-def read_and_store_data():
+try:
+    # Read data from Parquet files
     parquet_files = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.parquet')]
-    staged_data = []
-    for parquet_file in parquet_files:
-        df = pq.read_table(parquet_file).to_pandas()
-        staged_data.append(df)
-    staged_data_df = pd.concat(staged_data)
-    staged_data_df.to_parquet(os.path.join(staging_dir, 'staged_data.parquet'))
+    dfs = [pd.read_parquet(file) for file in parquet_files]
+    companies_df = pd.concat(dfs)
 
-# Function to ingest data into PostgreSQL
-def ingest_data_to_postgres():
     # Connect to PostgreSQL
-    pg_hook = PostgresHook(postgres_conn_id='postgres_default')
-    connection = pg_hook.get_conn()
-    cursor = connection.cursor()
+    conn = psycopg2.connect(
+        host=postgres_host,
+        port=postgres_port,
+        database=postgres_db,
+        user=postgres_user,
+        password=postgres_password
+    )
+    cursor = conn.cursor()
 
-    # Read data from staging area
-    staged_data_df = pq.read_table(os.path.join(staging_dir, 'staged_data.parquet')).to_pandas()
+    # Define the table name
+    table_name = 'companies'
 
-    # Ingest data into PostgreSQL
-    staged_data_df.to_sql('transactions', connection, if_exists='replace', index=False)
+    # Create the table if it doesn't exist
+    create_table_query = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            id UUID PRIMARY KEY,
+            company VARCHAR,
+            name VARCHAR,
+            address VARCHAR,
+            transaction_amount DECIMAL,
+            transaction_date DATE,
+            customer_preference VARCHAR,
+            communication_method VARCHAR
+        );
+    """
+    cursor.execute(create_table_query)
+    conn.commit()
 
-    # Commit and close connection
-    connection.commit()
+    # Ingest data into the table
+    for _, row in tqdm(companies_df.iterrows(), total=companies_df.shape[0], desc="Ingesting data"):
+        insert_query = f"""
+            INSERT INTO {table_name} (id, company, name, address, transaction_amount, transaction_date, customer_preference, communication_method)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+        """
+        cursor.execute(insert_query, (
+            row['id'],
+            row['company'],
+            row['name'],
+            row['address'],
+            float(row['transaction_amount']),  # Convert Decimal to float
+            row['transaction_date'],
+            row['customer_preference'],
+            row['communication_method']
+        ))
+        conn.commit()
+
+    print("Data successfully ingested into PostgreSQL.")
+
+except Exception as e:
+    print("Error:", e)
+
+finally:
     cursor.close()
-    connection.close()
-
-# Define the DAG
-with DAG('data_pipeline',
-         default_args=default_args,
-         schedule_interval=None,  # Set your desired schedule interval
-         catchup=False) as dag:
-
-    # Task to read and store data
-    read_and_store_task = PythonOperator(
-        task_id='read_and_store_data',
-        python_callable=read_and_store_data,
-    )
-
-    # Task to ingest data into PostgreSQL
-    ingest_to_postgres_task = PythonOperator(
-        task_id='ingest_data_to_postgres',
-        python_callable=ingest_data_to_postgres,
-    )
-
-    # Set task dependencies
-    read_and_store_task >> ingest_to_postgres_task
+    conn.close()

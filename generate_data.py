@@ -33,6 +33,7 @@ fields = [
     "communication_method"
 ]
 
+
 # Create the directory for company data if it doesn't exist
 data_dir = 'data/company_data'
 os.makedirs(data_dir, exist_ok=True)
