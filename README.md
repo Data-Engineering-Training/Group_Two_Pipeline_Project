@@ -75,11 +75,13 @@ Is used to create a database in the postgres docker container and ingest the syn
 
 ## Dependencies
 
-    pyarrow==5.0.0
-    pandas==1.3.3
-    psycopg2==2.9.1
-    tqdm==4.62.3
-    Faker==9.10.2
+    pyarrow
+    pandas
+    psycopg2
+    tqdm
+    faker
+    seaborn
+    matplotlib
 
 ## Note
 
